@@ -30,26 +30,32 @@ def fetch_paper_details(pmid: str) -> Dict:
     if response.status_code != 200:
         return None
     root = ET.fromstring(response.text)
-    title = root.findtext(".//ArticleTitle")
-    pub_date = root.findtext(".//PubDate/Year")
+    
+    title = root.findtext(".//ArticleTitle") or "Unknown Title"
+    pub_date = root.findtext(".//PubDate/Year") or "Unknown Date"
     authors = root.findall(".//Author")
     non_academic_authors = []
     company_affiliations = []
 
     for author in authors:
-        affiliation = author.findtext(".//Affiliation")
-        if affiliation and not any(kw in affiliation.lower() for kw in ["university", "college", "institute"]):
-            non_academic_authors.append(author.findtext("LastName"))
-            company_affiliations.append(affiliation)
+        last_name = author.findtext("LastName") or "Unknown"
+        first_name = author.findtext("ForeName") or ""
+        full_name = f"{first_name} {last_name}".strip()
+        affiliation = author.findtext(".//AffiliationInfo/Affiliation")
 
-    corresponding_email = root.findtext(".//ElectronicAddress")
+        if affiliation:
+            if not any(kw in affiliation.lower() for kw in ["university", "college", "institute", "hospital"]):
+                non_academic_authors.append(full_name)
+                company_affiliations.append(affiliation)
+
+    corresponding_email = root.findtext(".//AuthorList/Author/Email") or "Not Available"
 
     return {
         "PubmedID": pmid,
         "Title": title,
         "Publication Date": pub_date,
-        "Non-academic Authors": ", ".join(non_academic_authors),
-        "Company Affiliations": ", ".join(company_affiliations),
+        "Non-academic Authors": non_academic_authors,
+        "Company Affiliations": company_affiliations,
         "Corresponding Author Email": corresponding_email
     }
 
